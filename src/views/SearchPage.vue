@@ -44,6 +44,7 @@
             <img :src="img?.urls?.regular" alt="some photo" />
           </router-link>
         </div>
+        <h1 class="not-found" v-if="!images.length">Ничего не найдено!</h1>
       </div>
     </section>
   </div>
@@ -51,7 +52,7 @@
 
 <script>
 import { ref, watch, onMounted, onUnmounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import Header from "@/components/Header.vue";
 
@@ -64,35 +65,39 @@ export default {
   },
   setup() {
     const router = useRouter();
+    const route = useRoute();
 
     const scrollComponent = ref(null);
     const images = ref([]);
     const currentPage = ref(1);
     const totalPage = ref(null);
-    const searchQuery = ref("");
+    const searchQuery = ref(route.query.query);
 
-    const getPhotos = () => {
+    const searchPhotos = () => {
       axios
-        .get(`https://api.unsplash.com/photos/`, {
+        .get(`https://api.unsplash.com/search/photos`, {
           params: {
             client_id: "M9A55Wlare4TtbucVM4Z0e6c2YjV_2WmM6cdFW3zb7E",
+            query: searchQuery.value,
             page: currentPage.value,
           },
         })
-        .then(({ data, headers }) => {
-          images.value = [...images.value, ...data];
-          totalPage.value = Math.ceil(
-            headers["x-total"] / headers["x-per-page"]
-          );
+        .then(({ data }) => {
+          images.value = [...images.value, ...data.results];
+
+          totalPage.value = data.total_pages;
         });
     };
 
+    searchPhotos();
+
     watch(searchQuery, () => {
       router.push({ path: "/search", query: { query: searchQuery.value } });
+      searchPhotos();
     });
 
     onMounted(() => {
-      getPhotos();
+      searchPhotos();
       window.addEventListener("scroll", handleScroll);
     });
 
@@ -105,7 +110,7 @@ export default {
 
       if (element.getBoundingClientRect().bottom < window.innerHeight) {
         if (currentPage.value != totalPage.value) currentPage.value++;
-        getPhotos();
+        searchPhotos();
       }
     };
 
@@ -115,6 +120,12 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+.not-found {
+  text-align: center;
+  width: max-content;
+  margin: 0 auto;
+}
+
 .search {
   background-image: url("~@/assets/main-bg.jpg");
   background-repeat: no-repeat;
